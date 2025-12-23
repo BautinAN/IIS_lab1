@@ -1,0 +1,1 @@
+['num__px_width', 'poly__ram battery_power', 'spline__ram_sp_3']
