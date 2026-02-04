@@ -148,7 +148,7 @@ jupyter notebook eda/eda.ipynb
 
 Папка `services/ml_service` содержит код REST‑сервиса для инференса модели:  
 - `main.py` – FastAPI‑приложение с endpointом `/api/prediction/{item_id}`, описанием входных полей и формированием `pandas.DataFrame` для модели. 
-- `api_handler.py` – обёртка над загруженной моделью (`joblib.load`), выполняющая предсказание по переданным признакам.
+- `api_handler.py` – обёртка над загруженной моделью (`model.pkl`), выполняющая предсказание по переданным признакам.
 - `requirements.txt` – минимальные зависимости, необходимые только для работы сервиса (FastAPI, Uvicorn, pandas, numpy, scikit‑learn, joblib и др.).
 - `Dockerfile` – рецепт сборки Docker‑образа на базе `python:3.11-slim` и команды для запуска Uvicorn внутри контейнера.
 
