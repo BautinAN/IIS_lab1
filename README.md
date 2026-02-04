@@ -139,3 +139,87 @@ jupyter notebook eda/eda.ipynb
 - **R2**: 0.988
 
 Идентификатор Production-модели в MLflow: `dee2b68b897f4c529aaca23369b1a1da`
+
+
+
+# ЛР 3 Создание сервиса предсказаний
+
+## Описание сервиса
+
+Папка `services/ml_service` содержит код REST‑сервиса для инференса модели:  
+- `main.py` – FastAPI‑приложение с endpointом `/api/prediction/{item_id}`, описанием входных полей и формированием `pandas.DataFrame` для модели. 
+- `api_handler.py` – обёртка над загруженной моделью (`joblib.load`), выполняющая предсказание по переданным признакам.
+- `requirements.txt` – минимальные зависимости, необходимые только для работы сервиса (FastAPI, Uvicorn, pandas, numpy, scikit‑learn, joblib и др.).
+- `Dockerfile` – рецепт сборки Docker‑образа на базе `python:3.11-slim` и команды для запуска Uvicorn внутри контейнера.
+
+Папка `models` содержит файл обученной модели:  
+- `model.pkl` – сериализованный RandomForest‑классификатор (или pipeline), который используется сервисом для предсказаний.
+
+## Сборка Docker‑образа
+
+Из директории `services/ml_service`:
+
+```bash
+docker build -t ml_service:1 .
+```
+
+Здесь `ml_service` – имя образа, `1` – первая версия образа согласно заданию.
+
+## Запуск контейнера
+
+Из той же директории:
+
+```bash
+docker run -d   -p 8000:8000   -e OMP_NUM_THREADS=1   -e MKL_NUM_THREADS=1   -v $(pwd)/../models:/models   --name ml_service_container ml_service:1
+```
+
+- `-p 8000:8000` – пробрасывает порт `8000` контейнера на порт `8001` хоста (доступ по `http://localhost:8001`).
+- `-v "$(pwd)/../models:/models"` – монтирует локальную папку `../models` в `/models` внутри контейнера, откуда код загружает `model.pkl`.
+- `-e OMP_NUM_THREADS=1` - 1 поток для ML (Docker)
+- `-e MKL_NUM_THREADS=1` - 1 поток Intel Math
+
+## Проверка работоспособности
+
+1. Открыть браузер и перейти по адресу:  
+   `http://localhost:8000/docs` – автоматически сгенерированная Swagger‑документация FastAPI.
+2. Найти метод `POST /api/prediction/{item_id}`, нажать **Try it out**, указать `item_id` (например, `"31"`).  
+3. Вставить пример тела запроса:
+
+```json
+{
+  "battery_power": 1000,
+  "blue": 1,
+  "clock_speed": 2.5,
+  "dual_sim": 1,
+  "fc": 5,
+  "four_g": 1,
+  "int_memory": 64,
+  "m_dep": 0.5,
+  "mobile_wt": 150,
+  "n_cores": 8,
+  "pc": 12,
+  "px_height": 1920,
+  "px_width": 1080,
+  "ram": 4096,
+  "sc_h": 15,
+  "sc_w": 7,
+  "talk_time": 20,
+  "three_g": 1,
+  "touch_screen": 1,
+  "wifi": 1,
+  "screen_area": 105,
+  "pixel_density": 400.5,
+  "total_memory": 4160,
+  "is_high_end": 1
+}
+```
+
+4. Нажать **Execute** и убедиться, что сервис возвращает JSON с полями `item_id` и `predict` (классификация по обученной модели).
+
+   Пример полученного ответа:
+   ```json
+   {
+   "price": 2,
+   "item_id": 31
+   }
+   ```
