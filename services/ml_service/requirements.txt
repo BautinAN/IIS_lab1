@@ -5,3 +5,4 @@ scikit-learn==1.8.0
 scipy==1.16.2
 pydantic
 dill
+prometheus-client==0.20.0

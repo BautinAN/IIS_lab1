@@ -4,3 +4,9 @@
 mlartifacts/
 mlruns.db
 __pycache__/
+services/grafana/csv
+services/grafana/pdf
+services/grafana/plugins
+services/grafana/png
+services/grafana/grafana.db
+services/grafana/.gitignore

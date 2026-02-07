@@ -223,3 +223,182 @@ docker run -d   -p 8000:8000   -e OMP_NUM_THREADS=1   -e MKL_NUM_THREADS=1   -v 
    "item_id": 31
    }
    ```
+
+
+
+
+
+# Лабораторная работа №4. Мониторинг сервиса с моделью
+
+В рамках ЛР4 к ранее разработанному сервису машинного обучения добавлен стек мониторинга на базе Prometheus и Grafana.  
+Цель работы — собирать метрики работы сервиса и модели, визуализировать их на дашборде и проанализировать поведение системы под нагрузкой.
+
+***
+
+## Используемые технологии
+
+- Python, FastAPI — реализация REST‑сервиса с моделью.  
+- scikit-learn / pickle — загрузка и применение обученной модели.  
+- Prometheus + библиотека prometheus_client — сбор и экспозиция метрик сервиса.  
+- Grafana — визуализация метрик и построение дашборда.  
+- Docker, Docker Compose — упаковка сервисов и их совместный запуск.  
+
+***
+
+## Структура сервисов для мониторинга
+
+Папка `services/`:
+
+- `ml_service/`  
+  - `main.py` — FastAPI‑приложение, эндпоинт для предсказаний, экспозиция метрик `/metrics`.  
+  - `api_handler.py` (если есть) — вспомогательная логика обработки запросов.  
+  - `models/` — сериализованная модель, используемая сервисом.  
+  - `Dockerfile` — образ сервиса `ml_service`.  
+  - Сервис поднимается на `http://ml_service:8000`.
+
+- `requests/`  
+  - Скрипт(ы) генерации трафика к `ml_service` (периодические HTTP‑запросы для нагрузки и генерации метрик).  
+  - `Dockerfile` — образ `requests_service`.  
+  - Веб‑интерфейса нет, сервис работает в фоне.
+
+- `prometheus/`  
+  - `prometheus.yml` — конфигурация Prometheus: job для опроса `ml_service:8000/metrics` и других target‑ов при необходимости.  
+  - Образ: `prom/prometheus:latest`.  
+  - Веб‑интерфейс Prometheus: `http://localhost:9090`.
+
+- `grafana/`  
+  - `ml_dashboard.json` — экспортированный дашборд Grafana с панелями мониторинга.  
+  - (При необходимости) папка данных Grafana, смонтированная в `/var/lib/grafana`.  
+  - Образ: `grafana/grafana:latest`.  
+  - Веб‑интерфейс Grafana: `http://localhost:3000`, логин/пароль: `admin/admin`.
+
+Сервисы `database` и `pgadmin` в рамках данной лабораторной работы не поднимались, задания, связанные с БД, не выполнялись.
+
+***
+
+## Docker Compose и запуск проекта
+
+Файл `services/compose.yml` описывает совместный запуск:
+
+- `ml_service` — сервис с моделью.  
+- `requests_service` — генератор запросов.  
+- `prometheus` — сборщик метрик.  
+- `grafana` — визуализация.
+
+Запуск проекта:
+
+```bash
+cd services
+docker compose up -d
+```
+
+Остановка:
+
+```bash
+cd services
+docker compose down
+```
+
+После запуска сервисы доступны по адресам:
+
+- ML‑сервис: `http://localhost:8000/docs`
+- Prometheus: `http://localhost:9090`  
+- Grafana: `http://localhost:3000` (admin / admin)
+
+***
+
+## Метрики и мониторинг (Prometheus)
+
+В `ml_service` реализованы пользовательские метрики, экспонируемые на `/metrics`, например:
+
+- `http_requests_total{method,endpoint,status}` — общее число HTTP запросов (counter)
+- `ml_prediction_class_histogram` — гистограмма распределения предсказаний модели по классам (0,1,3)
+- Стандартные метрики Prometheus (up, scrape_duration_seconds, process_cpu_seconds_total)
+
+Примеры запросов в Prometheus:
+
+- Общее количетсов предсказаний:
+
+  ```promql
+  ml_prediction_class_histogram_sum
+  ```
+
+- Ошибки 2xx, 3xx, 4xx и 5xx (в минуту):
+
+  ```promql
+  rate(http_requests_total{status=~"2.."}[2m]) * 60
+  rate(http_requests_total{status=~"3.."}[2m]) * 60
+  rate(http_requests_total{status=~"4.."}[2m]) * 60
+  rate(http_requests_total{status=~"5.."}[2m]) * 60
+  ```
+
+- Распределение предсказаний по классам:
+
+  ```promql
+  rate(ml_prediction_class_histogram_bucket{le="1.0"}[2m]) * 60 
+  rate(ml_prediction_class_histogram_bucket{le="3.0"}[2m]) * 60 
+  ```
+
+- Время скрейпинга ML сервиса:
+
+  ```promql
+  scrape_duration_seconds{job="ml_service"}
+  ```
+
+- Использование памяти в байтах:
+
+  ```promql
+  process_resident_memory_bytes
+  ```
+
+Скриншоты с графиками Prometheus прикладываются в репозиторий и демонстрируют поведение этих метрик под нагрузкой.
+
+### Гистограма предсказаний модели
+![hist_predictions.png](images%2Fhist_predictions.png)
+
+### Частота (rate) запросов к основному сервису в минуту
+![rate_requests.png](images%2Frate_requests.png)
+
+### Количество запросов к сервису с кодами ошибок 4** и 5** (две линии на одном графике).
+![4xx_5xx_errors.png](images%2F4xx_5xx_errors.png)
+
+
+***
+
+## Дашборд Grafana
+
+В Grafana создан отдельный дашборд (экспортирован в `services/grafana/ml_dashboard.json`), который использует источник данных Prometheus (`http://prometheus:9090`).  
+Дашборд содержит минимум 5 графиков разных уровней мониторинга.
+
+Основные панели:
+
+1. «Total Predictions» — уровень качества модели / data shift 
+   - Запрос: `ml_prediction_class_histogram_sum`
+   - Показывает общее количетсов предсказаний. 
+
+2. «HTTP response statuses» — прикладной уровень  
+   - Запрос: `sum(rate(ml_requests_error_total{status=~"2..|3..|4..|5.."}[1m]) * 60) by (status)`  
+   - 4 линии: частота ответов с различными кодами в минуту.
+
+3. «Prediction Hist» — уровень качества модели / data shift  
+   - Запросы на основе `ml_prediction_class_histogram_bucket`, например:  
+     - Классы ≤1: `rate(ml_prediction_class_histogram_bucket{le="1.0"}[2m])`  
+     - Все классы: `rate(ml_prediction_class_histogram_bucket{le="3.0"}[2m]) * 60`  
+   - По изменению соотношения классов во времени можно судить о возможном data shift.
+
+4. «Scrape Duration» — инфраструктурный уровень  
+   - Запрос: `scrape_duration_seconds{job="ml_service"}`  
+   - Показывает производительность самого мониторинга.
+
+5. «Resident Memory Bytes» — инфраструктурный уровень  
+   - Запрос: `process_resident_memory_bytes`.  
+   - Показывает потребление оперативной памяти сервисом.
+
+Скриншот итогового дашборда (`services/grafana/dashboard.png`) добавлен в репозиторий и демонстрирует работу всех панелей одновременно.
+![dashboard.png](images%2Fdashboard.png)
+***
+
+## Импорт/экспорт дашборда
+
+- Для экспорта дашборда из Grafana используется меню Dashboard settings → JSON model → Download JSON, файл сохранён как `grafana/dashboard.json`.  
+- Для повторного использования дашборда его можно импортировать через Grafana: Dashboards → Import → Upload JSON file → выбрать `dashboard.json`.
