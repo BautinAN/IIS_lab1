@@ -357,10 +357,10 @@ docker compose down
 ![hist_predictions.png](services/prometheus/hist_predictions.png)
 
 ### Частота (rate) запросов к основному сервису в минуту
-![rate_requests.png](images%2Frate_requests.png)
+![rate_requests.png](services/prometheus/rate_requests.png)
 
 ### Количество запросов к сервису с кодами ошибок 4** и 5** (две линии на одном графике).
-![4xx_5xx_errors.png](images%2F4xx_5xx_errors.png)
+![4xx_5xx_errors.png](services/prometheus/4xx_5xx_errors.png)
 
 
 ***
@@ -395,7 +395,7 @@ docker compose down
    - Показывает потребление оперативной памяти сервисом.
 
 Скриншот итогового дашборда (`services/grafana/dashboard.png`) добавлен в репозиторий и демонстрирует работу всех панелей одновременно.
-![dashboard.png](images%2Fdashboard.png)
+![dashboard.png](services/grafana/dashboard.png)
 ***
 
 ## Импорт/экспорт дашборда
