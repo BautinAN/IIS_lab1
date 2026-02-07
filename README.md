@@ -354,7 +354,7 @@ docker compose down
 Скриншоты с графиками Prometheus прикладываются в репозиторий и демонстрируют поведение этих метрик под нагрузкой.
 
 ### Гистограма предсказаний модели
-![hist_predictions.png](images%2Fhist_predictions.png)
+![hist_predictions.png](services/prometheus/hist_predictions.png)
 
 ### Частота (rate) запросов к основному сервису в минуту
 ![rate_requests.png](images%2Frate_requests.png)
